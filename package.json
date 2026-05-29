@@ -1,0 +1,14 @@
+{
+  "name": "smarttodo",
+  "version": "1.0.0",
+  "description": "SmartTodo — Task Management App",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "build": "cd client && npm run build",
+    "start": "cd server && node index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
