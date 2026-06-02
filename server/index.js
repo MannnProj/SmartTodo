@@ -5,8 +5,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
+import { apiReference } from '@scalar/express-api-reference';
 import pool from './db/index.js';
 import { runMigrations } from './db/migrate.js';
+import { docsAuth } from './middleware/docsAuth.js';
+import { openapi } from './openapi.js';
 import authRoutes from './routes/auth.js';
 import taskRoutes from './routes/tasks.js';
 
@@ -40,6 +43,19 @@ app.use(express.static(staticDir));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Protected API documentation
+app.get('/api/openapi.json', docsAuth, (_req, res) => {
+  res.json(openapi);
+});
+app.use('/api/docs', docsAuth, apiReference({
+  spec: { url: '/api/openapi.json' },
+  theme: 'kepler',
+  metaData: {
+    title: 'SmartTodo API Docs',
+    description: 'Interactive API reference for SmartTodo',
+  },
+}));
 
 // API Routes
 app.use('/api/auth', authRoutes);
