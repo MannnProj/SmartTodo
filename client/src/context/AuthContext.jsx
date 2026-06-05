@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 
@@ -5,7 +6,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(sessionStorage.getItem('accessToken')));
   const [error, setError] = useState(null);
 
   // Try to restore session on mount
@@ -23,8 +24,6 @@ export function AuthProvider({ children }) {
           setUser(null);
         })
         .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
     }
   }, []);
 
@@ -38,7 +37,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       const message = err.response?.data?.error || 'Registration failed';
       setError(message);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   }, []);
 
@@ -52,7 +51,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       const message = err.response?.data?.error || 'Login failed';
       setError(message);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   }, []);
 
@@ -83,5 +82,3 @@ export function useAuth() {
   }
   return context;
 }
-
-export default AuthContext;
