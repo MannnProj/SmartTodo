@@ -1,511 +1,372 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
+import TaskModal from '../components/TaskModal';
+import TaskItem from '../components/TaskItem';
+import CalendarView from '../components/CalendarView';
+import { useAuth } from '../context/AuthContext';
+import { ListIcon, CalendarIcon, SparkleIcon } from '../components/icons';
 import api from '../utils/api';
+import { sortTasks, toDateKey, getToday, startOfMonth } from '../utils/tasks';
 
-const emptyForm = {
-  title: '',
-  description: '',
-  task_date: '',
-  task_time: '',
-  location: '',
-  priority: 'medium',
-};
-
-const priorityStyles = {
-  high: 'bg-red-50 text-red-700 ring-red-200',
-  medium: 'bg-amber-50 text-amber-700 ring-amber-200',
-  low: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-};
-
-const priorityLabels = {
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-};
-
-function normalizeTime(value) {
-  if (!value) return '';
-  return value.slice(0, 5);
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'Good night';
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  if (hour < 21) return 'Good evening';
+  return 'Good night';
 }
 
-function formatDate(value) {
-  if (!value) return 'No date';
+const STAT_CARDS = [
+  { key: 'total', label: 'Total', accent: 'text-slate-900' },
+  { key: 'pending', label: 'Pending', accent: 'text-indigo-600' },
+  { key: 'completed', label: 'Done', accent: 'text-emerald-600' },
+  { key: 'highPriority', label: 'High priority', accent: 'text-rose-600' },
+];
 
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat('en', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
-}
-
-function getToday() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getCurrentMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
+const LIST_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'done', label: 'Done' },
+];
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState(null);
-  const [filterMode, setFilterMode] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(getToday);
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const stats = useMemo(() => {
-    const total = tasks.length;
-    const completed = tasks.filter((task) => task.done).length;
-    const pending = total - completed;
-    const highPriority = tasks.filter((task) => !task.done && task.priority === 'high').length;
+  const [view, setView] = useState('list');
+  const [listFilter, setListFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState(getToday);
 
-    return { total, completed, pending, highPriority };
-  }, [tasks]);
-
-  const filterLabel = useMemo(() => {
-    if (filterMode === 'date') return `Tasks on ${selectedDate || 'selected date'}`;
-    if (filterMode === 'month') return `Tasks in ${selectedMonth || 'selected month'}`;
-    return 'All tasks';
-  }, [filterMode, selectedDate, selectedMonth]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [modalDate, setModalDate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     setError('');
-
     try {
-      const params = {};
-      if (filterMode === 'date' && selectedDate) params.date = selectedDate;
-      if (filterMode === 'month' && selectedMonth) params.month = selectedMonth;
-
-      const { data } = await api.get('/tasks', { params });
+      const { data } = await api.get('/tasks');
       setTasks(data.tasks || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load tasks. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [filterMode, selectedDate, selectedMonth]);
+  }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      fetchTasks();
-    }, 0);
-
+    const timer = window.setTimeout(() => fetchTasks(), 0);
     return () => window.clearTimeout(timer);
   }, [fetchTasks]);
 
-  const resetForm = () => {
-    setForm(emptyForm);
-    setEditingId(null);
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 2600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.done).length;
+    return {
+      total,
+      completed,
+      pending: total - completed,
+      highPriority: tasks.filter((t) => !t.done && t.priority === 'high').length,
+    };
+  }, [tasks]);
+
+  const completion = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+  const tasksByDate = useMemo(() => {
+    const map = new Map();
+    for (const task of tasks) {
+      const key = toDateKey(task.task_date);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(task);
+    }
+    return map;
+  }, [tasks]);
+
+  const visibleList = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtered = tasks.filter((task) => {
+      if (listFilter === 'pending' && task.done) return false;
+      if (listFilter === 'done' && !task.done) return false;
+      if (term) {
+        const haystack = `${task.title} ${task.description} ${task.location}`.toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      return true;
+    });
+    return sortTasks(filtered);
+  }, [tasks, listFilter, search]);
+
+  const openCreate = (date = '') => {
+    setEditingTask(null);
+    setModalDate(date || (view === 'calendar' ? selectedDate : ''));
+    setModalError('');
+    setModalOpen(true);
   };
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+  const openEdit = (task) => {
+    setEditingTask(task);
+    setModalDate('');
+    setModalError('');
+    setModalOpen(true);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const title = form.title.trim();
+  const closeModal = () => {
+    if (saving) return;
+    setModalOpen(false);
+    setEditingTask(null);
+    setModalError('');
+  };
 
-    if (!title) {
-      setError('Task title is required.');
+  const submitTask = async (payload) => {
+    if (!payload.title) {
+      setModalError('Task title is required.');
       return;
     }
-
     setSaving(true);
-    setError('');
-    setNotice('');
-
-    const payload = {
-      title,
-      description: form.description.trim(),
-      task_date: form.task_date || null,
-      task_time: form.task_time || null,
-      location: form.location.trim(),
-      priority: form.priority,
-    };
-
+    setModalError('');
     try {
-      if (editingId) {
-        await api.patch(`/tasks/${editingId}`, payload);
+      if (editingTask) {
+        await api.patch(`/tasks/${editingTask.id}`, payload);
         setNotice('Task updated.');
       } else {
         await api.post('/tasks', payload);
         setNotice('Task created.');
       }
-
-      resetForm();
+      setModalOpen(false);
+      setEditingTask(null);
       await fetchTasks();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save task.');
+      setModalError(err.response?.data?.error || 'Failed to save task.');
     } finally {
       setSaving(false);
     }
   };
 
-  const startEdit = (task) => {
-    setEditingId(task.id);
-    setForm({
-      title: task.title || '',
-      description: task.description || '',
-      task_date: task.task_date || '',
-      task_time: normalizeTime(task.task_time),
-      location: task.location || '',
-      priority: task.priority || 'medium',
-    });
-    setNotice('Editing task.');
-  };
-
   const toggleDone = async (task) => {
     setError('');
-    setNotice('');
-
+    const next = !task.done;
+    setTasks((current) => current.map((t) => (t.id === task.id ? { ...t, done: next } : t)));
     try {
-      await api.patch(`/tasks/${task.id}`, { done: !task.done });
-      setTasks((current) => current.map((item) => (item.id === task.id ? { ...item, done: !item.done } : item)));
-      setNotice(!task.done ? 'Task marked done.' : 'Task marked pending.');
+      await api.patch(`/tasks/${task.id}`, { done: next });
     } catch (err) {
+      setTasks((current) => current.map((t) => (t.id === task.id ? { ...t, done: task.done } : t)));
       setError(err.response?.data?.error || 'Failed to update task status.');
     }
   };
 
   const deleteTask = async (task) => {
-    const confirmed = window.confirm(`Delete "${task.title}"?`);
-    if (!confirmed) return;
-
+    if (!window.confirm(`Delete "${task.title}"?`)) return;
     setError('');
-    setNotice('');
-
     try {
       await api.delete(`/tasks/${task.id}`);
-      setTasks((current) => current.filter((item) => item.id !== task.id));
-      if (editingId === task.id) resetForm();
+      setTasks((current) => current.filter((t) => t.id !== task.id));
       setNotice('Task deleted.');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete task.');
     }
   };
 
-  return (
-    <Layout title="SmartTodo">
-      <div className="space-y-8">
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-6 py-8 text-white sm:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-2xl">
-                <p className="mb-3 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-100 ring-1 ring-white/15">
-                  Calm daily planning
-                </p>
-                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Plan, track, and finish your tasks.</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-300 sm:text-base">
-                  Keep the dashboard focused: create tasks quickly, scan priorities, and mark work done without leaving this page.
-                </p>
-              </div>
+  const changeMonth = (delta) => {
+    setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  };
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[430px]">
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">Total</p>
-                  <p className="mt-2 text-2xl font-bold">{stats.total}</p>
+  const goToday = () => {
+    const today = new Date();
+    setMonthDate(startOfMonth(today));
+    setSelectedDate(toDateKey(today));
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        {/* Hero */}
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-200/50">
+          <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-xl">
+              <p className="text-sm font-medium text-indigo-200">{greeting()},</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{user?.name || 'there'} 👋</h2>
+              <p className="mt-2 text-sm leading-6 text-indigo-100">
+                {stats.pending > 0
+                  ? `You have ${stats.pending} pending task${stats.pending > 1 ? 's' : ''}. Let's get them done.`
+                  : 'Everything is wrapped up. Enjoy your day!'}
+              </p>
+              <div className="mt-5 max-w-sm">
+                <div className="flex items-center justify-between text-xs font-medium text-indigo-100">
+                  <span>Completion</span>
+                  <span>{completion}%</span>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">Pending</p>
-                  <p className="mt-2 text-2xl font-bold">{stats.pending}</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">Done</p>
-                  <p className="mt-2 text-2xl font-bold">{stats.completed}</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">High</p>
-                  <p className="mt-2 text-2xl font-bold">{stats.highPriority}</p>
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/20">
+                  <div
+                    className="h-full rounded-full bg-white transition-all duration-500"
+                    style={{ width: `${completion}%` }}
+                  />
                 </div>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-md">
+              {STAT_CARDS.map((card) => (
+                <div key={card.key} className="rounded-2xl bg-white/95 px-4 py-3 text-center shadow-sm sm:text-left">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
+                  <p className={`mt-1 text-2xl font-bold ${card.accent}`}>{stats[card.key]}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(320px,420px)_1fr]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-950">{editingId ? 'Edit task' : 'Create task'}</h3>
-                <p className="text-sm text-slate-500">Add clear details so the day is easier to scan.</p>
-              </div>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="title" className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="title"
-                  name="title"
-                  type="text"
-                  value={form.title}
-                  onChange={handleChange}
-                  placeholder="Review deployment notes"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="description" className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  rows="3"
-                  placeholder="Optional notes or context"
-                  className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="task_date" className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Date
-                  </label>
-                  <input
-                    id="task_date"
-                    name="task_date"
-                    type="date"
-                    value={form.task_date}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="task_time" className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Time
-                  </label>
-                  <input
-                    id="task_time"
-                    name="task_time"
-                    type="time"
-                    value={form.task_time}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="location" className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Location
-                </label>
-                <input
-                  id="location"
-                  name="location"
-                  type="text"
-                  value={form.location}
-                  onChange={handleChange}
-                  placeholder="Home, office, server room..."
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="priority" className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Priority
-                </label>
-                <select
-                  id="priority"
-                  name="priority"
-                  value={form.priority}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
-
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex rounded-2xl bg-slate-100 p-1 text-sm font-medium text-slate-600">
+            {['list', 'calendar'].map((mode) => (
               <button
-                type="submit"
-                disabled={saving}
-                className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                key={mode}
+                type="button"
+                onClick={() => setView(mode)}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 capitalize transition ${
+                  view === mode ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-900'
+                }`}
               >
-                {saving ? 'Saving...' : editingId ? 'Save changes' : 'Create task'}
+                {mode === 'list' ? <ListIcon className="h-4 w-4" /> : <CalendarIcon className="h-4 w-4" />} {mode}
               </button>
-            </form>
-          </section>
+            ))}
+          </div>
 
+          <button
+            type="button"
+            onClick={() => openCreate()}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700"
+          >
+            <span className="text-base leading-none">+</span> New task
+          </button>
+        </div>
+
+        {/* Alerts */}
+        {error && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+        )}
+        {notice && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 animate-fade">
+            {notice}
+          </div>
+        )}
+
+        {/* Views */}
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-28 animate-pulse rounded-2xl bg-slate-100" />
+            ))}
+          </div>
+        ) : view === 'calendar' ? (
+          <CalendarView
+            monthDate={monthDate}
+            tasksByDate={tasksByDate}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            onPrevMonth={() => changeMonth(-1)}
+            onNextMonth={() => changeMonth(1)}
+            onToday={goToday}
+            onNewTask={openCreate}
+            onToggle={toggleDone}
+            onEdit={openEdit}
+            onDelete={deleteTask}
+          />
+        ) : (
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-950">Task list</h3>
-                <p className="text-sm text-slate-500">{filterLabel}</p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="inline-flex rounded-2xl bg-slate-100 p-1 text-sm font-medium text-slate-600">
-                  {['all', 'date', 'month'].map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setFilterMode(mode)}
-                      className={`rounded-xl px-3 py-2 capitalize transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                        filterMode === mode ? 'bg-white text-slate-950 shadow-sm' : 'hover:text-slate-950'
-                      }`}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
-
-                {filterMode === 'date' && (
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(event) => setSelectedDate(event.target.value)}
-                    className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                )}
-
-                {filterMode === 'month' && (
-                  <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(event) => setSelectedMonth(event.target.value)}
-                    className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                )}
-
-                <button
-                  type="button"
-                  onClick={fetchTasks}
-                  className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-
-            {(error || notice) && (
-              <div className="mb-4 space-y-2">
-                {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </div>
-                )}
-                {notice && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    {notice}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-28 animate-pulse rounded-2xl bg-slate-100" />
-                ))}
-              </div>
-            ) : tasks.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
-                  ✨
-                </div>
-                <h4 className="text-base font-semibold text-slate-950">No tasks here yet</h4>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                  Create your first task or change the filter to see another date/month.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {tasks.map((task) => (
-                  <article
-                    key={task.id}
-                    className={`rounded-2xl border p-4 transition hover:border-blue-200 hover:shadow-sm ${
-                      task.done ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 text-sm font-medium text-slate-600">
+                {LIST_FILTERS.map((filter) => (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => setListFilter(filter.key)}
+                    className={`rounded-lg px-3.5 py-1.5 transition ${
+                      listFilter === filter.key ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-900'
                     }`}
                   >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-3">
-                          <button
-                            type="button"
-                            onClick={() => toggleDone(task)}
-                            aria-label={task.done ? 'Mark task as pending' : 'Mark task as done'}
-                            className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                              task.done
-                                ? 'border-emerald-500 bg-emerald-500 text-white'
-                                : 'border-slate-300 bg-white text-transparent hover:border-emerald-500 hover:text-emerald-500'
-                            }`}
-                          >
-                            ✓
-                          </button>
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
 
-                          <div className="min-w-0">
-                            <h4 className={`text-base font-semibold ${task.done ? 'text-slate-400 line-through' : 'text-slate-950'}`}>
-                              {task.title}
-                            </h4>
-                            {task.description && (
-                              <p className={`mt-1 text-sm leading-6 ${task.done ? 'text-slate-400' : 'text-slate-600'}`}>
-                                {task.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+              <div className="relative sm:w-64">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path strokeLinecap="round" d="m20 20-3-3" />
+                </svg>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search tasks…"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                />
+              </div>
+            </div>
 
-                        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{formatDate(task.task_date)}</span>
-                          {task.task_time && <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{normalizeTime(task.task_time)}</span>}
-                          {task.location && <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">📍 {task.location}</span>}
-                          <span className={`rounded-full px-3 py-1 ring-1 ${priorityStyles[task.priority] || priorityStyles.medium}`}>
-                            {priorityLabels[task.priority] || 'Medium'} priority
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(task)}
-                          className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteTask(task)}
-                          className="rounded-xl px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </article>
+            {visibleList.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-14 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-indigo-500 shadow-sm">
+                  <SparkleIcon className="h-7 w-7" />
+                </div>
+                <h4 className="text-base font-semibold text-slate-900">
+                  {search || listFilter !== 'all' ? 'No matching tasks' : 'No tasks yet'}
+                </h4>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                  {search || listFilter !== 'all'
+                    ? 'Try a different filter or search term.'
+                    : 'Create your first task to get started.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openCreate()}
+                  className="mt-5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  + New task
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {visibleList.map((task) => (
+                  <TaskItem key={task.id} task={task} onToggle={toggleDone} onEdit={openEdit} onDelete={deleteTask} />
                 ))}
               </div>
             )}
           </section>
-        </div>
+        )}
       </div>
+
+      <TaskModal
+        open={modalOpen}
+        task={editingTask}
+        defaultDate={modalDate}
+        saving={saving}
+        error={modalError}
+        onClose={closeModal}
+        onSubmit={submitTask}
+      />
     </Layout>
   );
 }

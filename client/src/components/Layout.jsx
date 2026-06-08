@@ -11,24 +11,27 @@ export default function Layout({ children, title = 'SmartTodo' }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <img src="/favicon.svg" alt="SmartTodo logo" className="h-9 w-9 rounded-xl shadow-sm" />
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">{title}</h1>
+            </div>
 
             {user && (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-semibold text-white">
                     {user.name?.charAt(0).toUpperCase() || '?'}
                   </div>
-                  <span className="text-sm text-gray-700 hidden sm:block">{user.name}</span>
+                  <span className="hidden text-sm font-medium text-slate-700 sm:block">{user.name}</span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-sm text-gray-500 hover:text-red-600 transition px-3 py-1.5 rounded-lg hover:bg-red-50"
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
                 >
                   Logout
                 </button>
@@ -39,9 +42,7 @@ export default function Layout({ children, title = 'SmartTodo' }) {
       </header>
 
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
     </div>
   );
 }
