@@ -27,7 +27,7 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'http://localhost:3000',
-    'https://smarttodo.sudoman.my.id',
+    'https://smarttodo.sudobrew.dev',
     process.env.CORS_ORIGIN,
   ].filter(Boolean),
   credentials: true,
