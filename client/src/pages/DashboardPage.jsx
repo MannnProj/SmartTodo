@@ -199,7 +199,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl">
               <p className="text-sm font-medium text-indigo-200">{greeting()},</p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{user?.name || 'there'} 👋</h2>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{user?.name || 'there'}</h2>
               <p className="mt-2 text-sm leading-6 text-indigo-100">
                 {stats.pending > 0
                   ? `You have ${stats.pending} pending task${stats.pending > 1 ? 's' : ''}. Let's get them done.`
