@@ -107,6 +107,9 @@ export default function LandingPage() {
           <div className="animate-pop">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60">
               <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-semibold text-slate-900">Today Tasks</p>
+                </div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
                   67% done
