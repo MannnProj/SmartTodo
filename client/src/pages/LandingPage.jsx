@@ -166,16 +166,9 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:px-6">
-          <p>© {new Date().getFullYear()} SmartTodo</p>
-          <div className="flex items-center gap-5">
-            <Link to="/login" className="transition hover:text-slate-900">
-              Log in
-            </Link>
-            <Link to="/register" className="transition hover:text-slate-900">
-              Get started
-            </Link>
-          </div>
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:px-6">
+          <p>© {new Date().getFullYear()} SmartTodo - smarttodo.sudobrew.dev</p>
+          <p>Cakrawala University</p>
         </div>
       </footer>
     </div>
