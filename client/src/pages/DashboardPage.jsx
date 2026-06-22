@@ -30,6 +30,9 @@ const LIST_FILTERS = [
   { key: 'done', label: 'Done' },
 ];
 
+// Circumference of the completion ring (r = 15.5 in a 36x36 viewBox).
+const RING_CIRCUMFERENCE = 2 * Math.PI * 15.5;
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
@@ -194,39 +197,60 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Hero */}
-        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-200/50">
-          <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-xl">
-              <p className="text-sm font-medium text-indigo-200">{greeting()},</p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{user?.name || 'there'}</h2>
-              <p className="mt-2 text-sm leading-6 text-indigo-100">
+        {/* Header */}
+        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-500">{greeting()},</p>
+              <h2 className="mt-0.5 truncate text-2xl font-semibold tracking-tight text-slate-900">
+                {user?.name || 'there'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
                 {stats.pending > 0
                   ? `You have ${stats.pending} pending task${stats.pending > 1 ? 's' : ''}. Let's get them done.`
                   : 'Everything is wrapped up. Enjoy your day!'}
               </p>
-              <div className="mt-5 max-w-sm">
-                <div className="flex items-center justify-between text-xs font-medium text-indigo-100">
-                  <span>Completion</span>
-                  <span>{completion}%</span>
-                </div>
-                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/20">
-                  <div
-                    className="h-full rounded-full bg-white transition-all duration-500"
-                    style={{ width: `${completion}%` }}
-                  />
-                </div>
-              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-md">
-              {STAT_CARDS.map((card) => (
-                <div key={card.key} className="rounded-2xl bg-white/95 px-4 py-3 text-center shadow-sm sm:text-left">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
-                  <p className={`mt-1 text-2xl font-bold ${card.accent}`}>{stats[card.key]}</p>
+            {/* Completion ring */}
+            <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+              <div className="relative h-20 w-20">
+                <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-100" />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    className="text-indigo-600 transition-all duration-500"
+                    strokeDasharray={RING_CIRCUMFERENCE}
+                    strokeDashoffset={RING_CIRCUMFERENCE * (1 - completion / 100)}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-bold text-slate-900">{completion}%</span>
                 </div>
-              ))}
+              </div>
+              <div className="text-sm">
+                <p className="font-medium text-slate-900">Completion</p>
+                <p className="mt-0.5 text-slate-500">
+                  {stats.completed} of {stats.total} done
+                </p>
+              </div>
             </div>
+          </div>
+
+          {/* Stats strip */}
+          <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 sm:grid-cols-4">
+            {STAT_CARDS.map((card) => (
+              <div key={card.key} className="px-5 py-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{card.label}</p>
+                <p className={`mt-1 text-2xl font-semibold ${card.accent}`}>{stats[card.key]}</p>
+              </div>
+            ))}
           </div>
         </section>
 
