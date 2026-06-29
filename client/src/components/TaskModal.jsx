@@ -8,6 +8,8 @@ const emptyForm = {
   task_time: '',
   location: '',
   priority: 'medium',
+  category_id: '',
+  repeat_type: 'none',
 };
 
 const priorityOptions = [
@@ -19,7 +21,7 @@ const priorityOptions = [
 const fieldClass =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100';
 
-export default function TaskModal({ open, task, defaultDate, saving, error, onClose, onSubmit }) {
+export default function TaskModal({ open, task, defaultDate, saving, error, onClose, onSubmit, categories = [] }) {
   const [form, setForm] = useState(emptyForm);
   const titleRef = useRef(null);
 
@@ -34,6 +36,8 @@ export default function TaskModal({ open, task, defaultDate, saving, error, onCl
           task_time: normalizeTime(task.task_time),
           location: task.location || '',
           priority: task.priority || 'medium',
+          category_id: task.category_id || '',
+          repeat_type: task.repeat_type || 'none',
         });
       } else {
         setForm({ ...emptyForm, task_date: defaultDate || '' });
@@ -72,6 +76,8 @@ export default function TaskModal({ open, task, defaultDate, saving, error, onCl
       task_time: form.task_time || null,
       location: form.location.trim(),
       priority: form.priority,
+      category_id: form.category_id ? parseInt(form.category_id) : null,
+      repeat_type: form.repeat_type || 'none',
     });
   };
 
@@ -164,6 +170,45 @@ export default function TaskModal({ open, task, defaultDate, saving, error, onCl
               placeholder="Home, office, server room..."
               className={fieldClass}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="category_id" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Category
+              </label>
+              <select
+                id="category_id"
+                name="category_id"
+                value={form.category_id}
+                onChange={change}
+                className={fieldClass}
+              >
+                <option value="">Unassigned</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="repeat_type" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Repeat 🔁
+              </label>
+              <select
+                id="repeat_type"
+                name="repeat_type"
+                value={form.repeat_type}
+                onChange={change}
+                className={fieldClass}
+              >
+                <option value="none">No Repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
           </div>
 
           <div>

@@ -12,6 +12,8 @@ import { docsAuth } from './middleware/docsAuth.js';
 import { openapi } from './openapi.js';
 import authRoutes from './routes/auth.js';
 import taskRoutes from './routes/tasks.js';
+import categoryRoutes from './routes/categories.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
 
@@ -60,6 +62,8 @@ app.use('/api/docs', docsAuth, apiReference({
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

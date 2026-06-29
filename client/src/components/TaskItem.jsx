@@ -1,8 +1,14 @@
 import { priority, formatDate, formatTime } from '../utils/tasks';
 import { CheckIcon, CalendarIcon, ClockIcon, MapPinIcon } from './icons';
 
-export default function TaskItem({ task, onToggle, onEdit, onDelete, showDate = true }) {
+export default function TaskItem({ task, onToggle, onEdit, onDelete, showDate = true, categories = [] }) {
   const p = priority(task.priority);
+  const matchedCat = categories.find((c) => c.id === task.category_id);
+  const repeatLabels = {
+    daily: 'Daily 🔁',
+    weekly: 'Weekly 🔁',
+    monthly: 'Monthly 🔁',
+  };
 
   return (
     <article
@@ -76,6 +82,19 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, showDate = 
             {task.location && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
                 <MapPinIcon className="h-3.5 w-3.5" /> {task.location}
+              </span>
+            )}
+            {matchedCat && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-white font-semibold"
+                style={{ backgroundColor: matchedCat.color }}
+              >
+                {matchedCat.name}
+              </span>
+            )}
+            {task.repeat_type !== 'none' && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-1">
+                {repeatLabels[task.repeat_type] || 'Recurring'}
               </span>
             )}
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ring-1 ${p.chip}`}>
