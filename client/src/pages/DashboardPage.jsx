@@ -4,7 +4,7 @@ import TaskModal from '../components/TaskModal';
 import TaskItem from '../components/TaskItem';
 import CalendarView from '../components/CalendarView';
 import { useAuth } from '../context/AuthContext';
-import { ListIcon, CalendarIcon, SparkleIcon } from '../components/icons';
+import { ListIcon, CalendarIcon, SparkleIcon, FolderIcon } from '../components/icons';
 import api from '../utils/api';
 import { sortTasks, toDateKey, getToday, startOfMonth } from '../utils/tasks';
 
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                           selectedCategory === null ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50'
                         }`}
                       >
-                        <span>📂 All Categories</span>
+                        <span className="flex items-center gap-1.5"><FolderIcon className="h-3.5 w-3.5" /> All Categories</span>
                         <span className="bg-slate-200/50 text-slate-600 px-2 py-0.5 rounded-full text-[10px]">
                           {tasks.length}
                         </span>

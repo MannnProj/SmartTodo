@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { normalizeTime } from '../utils/tasks';
+import { RepeatIcon } from './icons';
 
 const emptyForm = {
   title: '',
@@ -193,8 +194,8 @@ export default function TaskModal({ open, task, defaultDate, saving, error, onCl
               </select>
             </div>
             <div>
-              <label htmlFor="repeat_type" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Repeat 🔁
+              <label htmlFor="repeat_type" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <RepeatIcon className="h-3.5 w-3.5" /> Repeat
               </label>
               <select
                 id="repeat_type"

@@ -1,13 +1,13 @@
 import { priority, formatDate, formatTime } from '../utils/tasks';
-import { CheckIcon, CalendarIcon, ClockIcon, MapPinIcon } from './icons';
+import { CheckIcon, CalendarIcon, ClockIcon, MapPinIcon, RepeatIcon } from './icons';
 
 export default function TaskItem({ task, onToggle, onEdit, onDelete, showDate = true, categories = [] }) {
   const p = priority(task.priority);
   const matchedCat = categories.find((c) => c.id === task.category_id);
   const repeatLabels = {
-    daily: 'Daily 🔁',
-    weekly: 'Weekly 🔁',
-    monthly: 'Monthly 🔁',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
   };
 
   return (
@@ -94,7 +94,7 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, showDate = 
             )}
             {task.repeat_type !== 'none' && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-1">
-                {repeatLabels[task.repeat_type] || 'Recurring'}
+                <RepeatIcon className="h-3 w-3" /> {repeatLabels[task.repeat_type] || 'Recurring'}
               </span>
             )}
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ring-1 ${p.chip}`}>

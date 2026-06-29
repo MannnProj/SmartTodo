@@ -79,6 +79,25 @@ export function EyeOffIcon({ className = 'h-4 w-4' }) {
   );
 }
 
+export function FolderIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z" />
+    </svg>
+  );
+}
+
+export function RepeatIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M17 2.5 21 6l-4 3.5" />
+      <path d="M3 12a9 9 0 0 1 15.6-5.6" />
+      <path d="M7 21.5 3 18l4-3.5" />
+      <path d="M21 12a9 9 0 0 1-15.6 5.6" />
+    </svg>
+  );
+}
+
 export function ShieldIcon({ className = 'h-4 w-4' }) {
   return (
     <svg {...base} className={className} aria-hidden="true">
