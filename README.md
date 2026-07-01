@@ -11,7 +11,7 @@ SmartTodo sekarang berjalan sebagai dua service Dokploy terpisah:
 - **Frontend service:** React SPA dibuild dengan Vite, lalu diserve oleh Nginx container.
 - **Backend service:** Express API container terpisah, fokus untuk auth, task API, migrasi database, dan koneksi PostgreSQL.
 - **Database:** PostgreSQL via `DATABASE_URL`.
-- **Ingress:** Dokploy + Traefik, diekspos lewat Cloudflare Tunnel ke domain `smarttodo.sudoman.my.id`.
+- **Ingress:** Dokploy + Traefik, diekspos lewat Cloudflare Tunnel ke domain `smarttodo.sudobrew.dev`.
 
 Pembagian ini menggantikan model lama yang terkesan satu container full-stack. `Dockerfile` dipakai untuk frontend/Nginx, sedangkan `Dockerfile.api` dipakai untuk backend API.
 
