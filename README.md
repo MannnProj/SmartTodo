@@ -2,7 +2,7 @@
 
 SmartTodo adalah aplikasi task management full-stack untuk mencatat agenda harian dengan autentikasi user, refresh-token cookie, dan penyimpanan task per pengguna.
 
-> Live app: https://smarttodo.sudoman.my.id
+> Live app: https://smarttodo.sudobrew.dev
 
 ## Status Stack Terbaru
 
